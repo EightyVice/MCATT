@@ -1,0 +1,47 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net6.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Remove="JavaLexer.g4" />
+    <None Remove="JavaParser.g4" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ApplicationDefinition Include="JavaLexer.g4" />
+    <ApplicationDefinition Include="JavaParser.g4" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="obj\Debug\net6.0\JavaLexer.cs" />
+    <Compile Include="obj\Debug\net6.0\JavaParser.cs" />
+    <Compile Include="obj\Debug\net6.0\JavaParserBaseListener.cs" />
+    <Compile Include="obj\Debug\net6.0\JavaParserBaseVisitor.cs" />
+    <Compile Include="obj\Debug\net6.0\JavaParserListener.cs" />
+    <Compile Include="obj\Debug\net6.0\JavaParserVisitor.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Folder Include="Tester\" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Antlr4" Version="4.6.6">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+    <PackageReference Include="Antlr4.Runtime" Version="4.6.6" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Update="sourcecode.txt">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,5 @@
+﻿{
+	int x = 3, y = 5, z = 12;
+	string t = "test";
+	int[] arr = {1,2,3,4,5};
+}
