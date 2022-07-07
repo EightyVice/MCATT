@@ -4,11 +4,17 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+
+using System.Text.Json;
+using System.Text.Json.Serialization;
+
 namespace MCATT.VirtualMachines
 {
 	internal class JavaVM
 	{
 		public Environment Environment { get; private set; } = new Environment();
+		public List<Step> Steps { get; private set; } = new List<Step> ();
+
 		public string SourceCode { get; private set; }
 
 		public JavaVM(string sourceCode)
@@ -25,6 +31,13 @@ namespace MCATT.VirtualMachines
 			//Console.WriteLine(tree.ToStringTree());
 			JavaInterpreter interpreter = new JavaInterpreter(this);
 			tree.Accept(interpreter);
+
+			// Dumping
+			Console.WriteLine("** Dumping Environment **");
+			Console.WriteLine(JsonSerializer.Serialize(Environment));
+			Console.WriteLine("*************************");
+			Console.WriteLine("**    Dumping Steps    **");
+			Console.WriteLine(JsonSerializer.Serialize(Steps));
 
 			Console.WriteLine();
 		}

@@ -48,6 +48,13 @@ namespace MCATT.VirtualMachines
 			// Get multiple declarators
 			foreach(var declarator in context.variableDeclarators().variableDeclarator())
 			{
+				Step step = new Step()
+				{
+					Start = context.Start.StartIndex,
+					End = context.stop.StopIndex,
+					Line = context.start.Line,
+				};
+
 				Variable variable = new Variable();
 				variable.Type = type;
 				variable.IsConstant = isConstant;
@@ -58,13 +65,18 @@ namespace MCATT.VirtualMachines
 				var initializer = declarator.variableInitializer();
 				if(initializer.arrayInitializer() != null)	// It's an array?
 				{
+					step.Event = new StepEvent() { Event = Event.InitArray };
+
 					variable.IsArray = true;
 					List<object> inits = new List<object>();
 					
 					// For now, first-dimension arrays only
 					foreach(var arrinit in initializer.arrayInitializer().variableInitializer())
 					{
-						inits.Add(Visit(arrinit.expression()));
+						var val = Visit(arrinit.expression());
+						inits.Add(val);
+
+						step.Event.EventParameters.Add(val?.ToString());
 					}
 
 					variable.Values = inits;
@@ -72,9 +84,16 @@ namespace MCATT.VirtualMachines
 				else
 				{
 					variable.IsArray = false;
-					variable.Value = Visit(initializer.expression());
+					object val = Visit(initializer.expression());
+					variable.Value = val;
+					step.Event = new StepEvent() { Event = Event.InitVariable};
+					step.Event.EventParameters.Add(variable.Name);
+					step.Event.EventParameters.Add(Enum.GetName(variable.Type));
+					step.Event.EventParameters.Add(variable.Value?.ToString());
 				}
+
 				variables.Add(variable);
+				VM.Steps.Add(step);
 			}
 
 			foreach(var variable in variables)
@@ -90,9 +109,35 @@ namespace MCATT.VirtualMachines
 			//Console.WriteLine(context.GetText());
 			return null;
 		}
+
 		public override object VisitArrayInitializer([NotNull] JavaParser.ArrayInitializerContext context)
 		{
 			return base.VisitArrayInitializer(context);
 		}
+
+
+		public override object VisitExprIntLiteral([NotNull] ExprIntLiteralContext context)
+		{
+			return int.Parse(context.GetText());
+		}
+		public override object VisitExprFloatLiteral([NotNull] ExprFloatLiteralContext context)
+		{
+			return float.Parse(context.GetText().TrimEnd('f', 'F'));
+		}
+		public override object VisitExprBoolLitearl([NotNull] ExprBoolLitearlContext context)
+		{
+			return bool.Parse(context.GetText());
+		}
+
+		public override object VisitExprCharLiteral([NotNull] ExprCharLiteralContext context)
+		{
+			return base.VisitExprCharLiteral(context);
+		}
+
+		public override object VisitExprStringLiteral([NotNull] ExprStringLiteralContext context)
+		{
+			return context.GetText().TrimStart('\"').TrimEnd('\"');
+		}
+
 	}
 }
