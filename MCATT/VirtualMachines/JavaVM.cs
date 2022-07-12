@@ -37,7 +37,7 @@ namespace MCATT.VirtualMachines
 			Console.WriteLine(JsonSerializer.Serialize(Environment));
 			Console.WriteLine("*************************");
 			Console.WriteLine("**    Dumping Steps    **");
-			Console.WriteLine(JsonSerializer.Serialize(Steps));
+			Console.WriteLine(JsonSerializer.Serialize(Steps, new JsonSerializerOptions() { WriteIndented = true}));
 
 			Console.WriteLine();
 		}

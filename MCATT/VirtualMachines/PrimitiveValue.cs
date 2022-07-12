@@ -6,9 +6,13 @@ using System.Threading.Tasks;
 
 namespace MCATT.VirtualMachines
 {
-	internal class Environment
+	internal class PrimitiveValue<T>
 	{
-		public Dictionary<string, IVarObj> Variables = new Dictionary<string,IVarObj>();
-		
+		private T value;
+
+		public PrimitiveValue(object Value)
+		{
+			value = (T)Value;
+		}
 	}
 }

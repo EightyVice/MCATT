@@ -10,7 +10,7 @@ using static MCATT.JavaParser;
 
 namespace MCATT.VirtualMachines
 {
-	internal class JavaInterpreter : JavaParserBaseVisitor<object>
+	internal class JavaInterpreter : JavaParserBaseVisitor<dynamic>
 	{
 		public JavaVM VM { get; }
 
@@ -24,26 +24,22 @@ namespace MCATT.VirtualMachines
 			return base.VisitChildren(node);
 		}
 
-		public override object VisitExpression([NotNull] JavaParser.ExpressionContext context)
-		{
-			return base.VisitExpression(context);
-		}
-
 
 		public override object VisitLocalVariableDeclaration([NotNull] LocalVariableDeclarationContext context)
 		{
 			VisitChildren(context);
 
-			List<Variable> variables = new List<Variable>();
+			List<IVarObj> variables = new List<IVarObj>();
 
 			bool isConstant = false;
 			VariableType type = VariableType.Unknown;
+			string name;
 
 			// check for 'final' modifier
 			if (context.variableModifier(0)?.FINAL() != null) isConstant = true;
 			
 			// Get Variable Type
-			type = Variable.GetTypeFromString(context.typeType().GetText());
+			type = PrimitiveType.GetTypeFromString(context.typeType().GetText());
 
 			// Get multiple declarators
 			foreach(var declarator in context.variableDeclarators().variableDeclarator())
@@ -53,43 +49,36 @@ namespace MCATT.VirtualMachines
 					Start = context.Start.StartIndex,
 					End = context.stop.StopIndex,
 					Line = context.start.Line,
+					Text = context.GetText()
 				};
 
-				Variable variable = new Variable();
-				variable.Type = type;
-				variable.IsConstant = isConstant;
-				
-				variable.Name = declarator.variableDeclaratorId().GetText();
+				IVarObj variable = null;
+				name = declarator.variableDeclaratorId().GetText();
 
 				// Get Initializers
 				var initializer = declarator.variableInitializer();
 				if(initializer.arrayInitializer() != null)	// It's an array?
 				{
-					step.Event = new StepEvent() { Event = Event.InitArray };
-
-					variable.IsArray = true;
-					List<object> inits = new List<object>();
-					
+					List<IVarObj> inits = new List<IVarObj>();
+					step.Event = new Event(EventType.InitArray);
 					// For now, first-dimension arrays only
 					foreach(var arrinit in initializer.arrayInitializer().variableInitializer())
 					{
-						var val = Visit(arrinit.expression());
+						var val = new PrimitiveType(name, type, Visit(arrinit.expression()), isConstant);
 						inits.Add(val);
-
-						step.Event.EventParameters.Add(val?.ToString());
+						step.Event.Parameters.Add(val.Value.ToString());
 					}
 
-					variable.Values = inits;
+					variable = new ArrayClass(name, inits.ToArray());
 				}
 				else
 				{
-					variable.IsArray = false;
-					object val = Visit(initializer.expression());
-					variable.Value = val;
-					step.Event = new StepEvent() { Event = Event.InitVariable};
-					step.Event.EventParameters.Add(variable.Name);
-					step.Event.EventParameters.Add(Enum.GetName(variable.Type));
-					step.Event.EventParameters.Add(variable.Value?.ToString());
+					dynamic val = Visit(initializer.expression());
+					variable = new PrimitiveType(name, type, val); 
+					step.Event = new Event(EventType.InitVariable);
+					step.Event.Parameters.Add(name);
+					step.Event.Parameters.Add(Enum.GetName(variable.VarType));
+					step.Event.Parameters.Add(((PrimitiveType)variable).Value?.ToString());
 				}
 
 				variables.Add(variable);
@@ -103,6 +92,137 @@ namespace MCATT.VirtualMachines
 
 			return null;
 		}
+
+		// All expression evaluations will happen in this region, so this method will end up being the biggest, NOTE: Part it if possible...
+		#region Expression
+		
+		// Adding & Subtraction
+		public override dynamic VisitExprAS([NotNull] ExprASContext context)
+		{
+			VisitChildren(context);
+
+			dynamic left = Visit(context.expression(0));
+			dynamic right = Visit(context.expression(1));
+
+			// Todo, + / - overloaded operators on classes
+			if (context.bop.Text == "+") return left + right;
+			else if (context.bop.Text == "-") return left - right;
+			else return null;
+		}
+
+		public override dynamic VisitExprMDM([NotNull] ExprMDMContext context)
+		{
+			VisitChildren(context);
+
+			dynamic left = Visit(context.expression(0));
+			dynamic right = Visit(context.expression(1));
+
+			if (context.bop.Text == "*") return left * right;
+			else if (context.bop.Text == "/") return left / right;
+			else if (context.bop.Text == "%") return left % right;
+			else return null;
+		}
+
+		public override dynamic VisitExprPrimary([NotNull] ExprPrimaryContext context)
+		{
+				
+			if(context.primary().identifier() != null)
+			{
+				string id = context.primary().identifier().GetText();
+				return VM.Environment.Variables[id];
+			}
+			return VisitChildren(context);
+		}
+		public override dynamic VisitExprArraySubscription([NotNull] ExprArraySubscriptionContext context)
+		{
+			VisitChildren(context);
+
+			object arr = Visit(context.expression(0));
+			int index = Visit(context.expression(1));
+			if(arr is ArrayClass)
+			{
+				return ((ArrayClass)arr).Values[index];
+			}
+			return null;
+		}
+
+		public override dynamic VisitExprRightAssociation([NotNull] ExprRightAssociationContext context)
+		{
+			VisitChildren(context);
+
+			Step step = new Step()
+			{
+				Start = context.Start.StartIndex,
+				End = context.stop.StopIndex,
+				Line = context.start.Line,
+				Text = context.GetText(),
+				Event = new Event(EventType.ValueChanged)
+			};
+			// Todo support nested right assoc
+			object exprLeft = Visit(context.expression(0));
+			dynamic right = Visit(context.expression(1));
+
+			if(exprLeft is PrimitiveType)
+			{
+				PrimitiveType left = (PrimitiveType)exprLeft;
+				switch (context.bop.Text)
+				{
+					case "=":	step.Event.Parameters.AddRange(new string[] { left.Name, left.Value.ToString(), right.ToString()});					VM.Steps.Add(step);	return left.Value = right;
+					case "+=":	step.Event.Parameters.AddRange(new string[] { left.Name, left.Value.ToString(), (left.Value + right).ToString()});	VM.Steps.Add(step);	return left.Value += right;
+					case "-=":	step.Event.Parameters.AddRange(new string[] { left.Name, left.Value.ToString(), (left.Value - right).ToString()});	VM.Steps.Add(step);	return left.Value -= right;
+					case "*=":	step.Event.Parameters.AddRange(new string[] { left.Name, left.Value.ToString(), (left.Value * right).ToString()});	VM.Steps.Add(step);	return left.Value *= right;
+					case "/=":	step.Event.Parameters.AddRange(new string[] { left.Name, left.Value.ToString(), (left.Value / right).ToString()});	VM.Steps.Add(step); return left.Value /= right;
+				}
+
+			}
+			else
+			{
+				throw new Exception();
+			}
+			return null;
+		}
+
+
+		// Logicals
+		public override dynamic VisitExprComparison([NotNull] ExprComparisonContext context)
+		{
+			VisitChildren(context);
+			dynamic left = Visit(context.expression(0));
+			dynamic right = Visit(context.expression(1));
+
+
+			switch (context.bop.Text)
+			{
+				case ">":	return (left is PrimitiveType ? (left as PrimitiveType).Value : left) >	(right is PrimitiveType ? (right as PrimitiveType).Value : right);
+				case "<":	return (left is PrimitiveType ? (left as PrimitiveType).Value : left) < (right is PrimitiveType ? (right as PrimitiveType).Value : right);
+				case ">=":	return (left is PrimitiveType ? (left as PrimitiveType).Value : left) >= (right is PrimitiveType ? (right as PrimitiveType).Value : right);
+				case "<=":	return (left is PrimitiveType ? (left as PrimitiveType).Value : left) <= (right is PrimitiveType ? (right as PrimitiveType).Value : right);
+			}
+
+			return null;
+		}
+
+		public override dynamic VisitExprEquality([NotNull] ExprEqualityContext context)
+		{
+			VisitChildren(context);
+			dynamic left = Visit(context.expression(0));
+			dynamic right = Visit(context.expression(1));
+
+
+			switch (context.bop.Text)
+			{
+				case "==": return (left is PrimitiveType ? (left as PrimitiveType).Value : left) == (right is PrimitiveType ? (right as PrimitiveType).Value : right);
+				case "!=": return (left is PrimitiveType ? (left as PrimitiveType).Value : left) != (right is PrimitiveType ? (right as PrimitiveType).Value : right);
+			}
+
+			return null;
+		}
+
+		
+		#endregion
+
+
+
 		public override object VisitBlockStatement([NotNull] BlockStatementContext context)
 		{
 			VisitChildren(context);
@@ -116,28 +236,29 @@ namespace MCATT.VirtualMachines
 		}
 
 
-		public override object VisitExprIntLiteral([NotNull] ExprIntLiteralContext context)
+		#region Literals
+		public override dynamic VisitExprIntLiteral([NotNull] ExprIntLiteralContext context)
 		{
 			return int.Parse(context.GetText());
 		}
-		public override object VisitExprFloatLiteral([NotNull] ExprFloatLiteralContext context)
+		public override dynamic VisitExprFloatLiteral([NotNull] ExprFloatLiteralContext context)
 		{
 			return float.Parse(context.GetText().TrimEnd('f', 'F'));
 		}
-		public override object VisitExprBoolLitearl([NotNull] ExprBoolLitearlContext context)
+		public override dynamic VisitExprBoolLitearl([NotNull] ExprBoolLitearlContext context)
 		{
 			return bool.Parse(context.GetText());
 		}
 
-		public override object VisitExprCharLiteral([NotNull] ExprCharLiteralContext context)
+		public override dynamic VisitExprCharLiteral([NotNull] ExprCharLiteralContext context)
 		{
 			return base.VisitExprCharLiteral(context);
 		}
 
-		public override object VisitExprStringLiteral([NotNull] ExprStringLiteralContext context)
+		public override dynamic VisitExprStringLiteral([NotNull] ExprStringLiteralContext context)
 		{
 			return context.GetText().TrimStart('\"').TrimEnd('\"');
 		}
-
+		#endregion
 	}
 }

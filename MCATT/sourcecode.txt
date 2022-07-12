@@ -1,5 +1,8 @@
 ﻿{
-	int x = 3, y = 5, z = 12;
-	String t = "test";
+    int x = 1+2+3+4; 
+	//x += x;
+	//String t = "test";
 	int[] arr = {1,2,3,4,5};
+	arr[2] += 12;
+	if(arr[2] == 12);
 }

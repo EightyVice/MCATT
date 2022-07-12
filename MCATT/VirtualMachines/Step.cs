@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Antlr4.Runtime;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -8,10 +9,12 @@ namespace MCATT.VirtualMachines
 {
 	internal class Step
 	{
+
+
 		public string Text { get; set; }
 		public int Start { get; set; }
 		public int End { get; set; }
 		public int Line { get; set; }
-		public StepEvent Event { get; set; } = new StepEvent();
+		public Event Event { get; set; }
 	}
 }

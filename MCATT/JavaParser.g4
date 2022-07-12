@@ -489,15 +489,12 @@ statement
     | TRY block (catchClause+ finallyBlock? | finallyBlock)
     | TRY resourceSpecification block catchClause* finallyBlock?
     | SWITCH parExpression '{' switchBlockStatementGroup* switchLabel* '}'
-    | SYNCHRONIZED parExpression block
     | RETURN expression? ';'
     | THROW expression ';'
     | BREAK identifier? ';'
     | CONTINUE identifier? ';'
-    | YIELD expression ';' // Java17
     | SEMI
     | statementExpression=expression ';'
-    | switchExpression ';'? // Java17
     | identifierLabel=identifier ':' statement
     ;
 
@@ -569,7 +566,7 @@ methodCall
     ;
 
 expression
-    : primary
+    : primary                                                                       #ExprPrimary
     | expression bop='.'
       (
          identifier
@@ -578,36 +575,30 @@ expression
        | NEW nonWildcardTypeArguments? innerCreator
        | SUPER superSuffix
        | explicitGenericInvocation
-      )
-    | expression '[' expression ']'
-    | methodCall
-    | NEW creator
-    | '(' annotation* typeType ('&' typeType)* ')' expression
-    | expression postfix=('++' | '--')
-    | prefix=('+'|'-'|'++'|'--') expression
-    | prefix=('~'|'!') expression
-    | expression bop=('*'|'/'|'%') expression
-    | expression bop=('+'|'-') expression
-    | expression ('<' '<' | '>' '>' '>' | '>' '>') expression
-    | expression bop=('<=' | '>=' | '>' | '<') expression
-    | expression bop=INSTANCEOF (typeType | pattern)
-    | expression bop=('==' | '!=') expression
-    | expression bop='&' expression
-    | expression bop='^' expression
-    | expression bop='|' expression
-    | expression bop='&&' expression
-    | expression bop='||' expression
-    | <assoc=right> expression bop='?' expression ':' expression
-    | <assoc=right> expression
+      )                                                                             #ExprDotBOP
+    | expression '[' expression ']'                                                 #ExprArraySubscription
+    | methodCall                                                                    #ExprMethodCall
+    | NEW creator                                                                   #ExprCreator
+    | expression postfix=('++' | '--')                                              #ExprPostfix    
+    | prefix=('+'|'-'|'++'|'--') expression                                         #ExprPrefixArthemtic
+    | prefix=('~'|'!') expression                                                   #ExprPrefixLogical
+    | expression bop=('*'|'/'|'%') expression                                       #ExprMDM
+    | expression bop=('+'|'-') expression                                           #ExprAS
+    | expression ('<' '<' | '>' '>' '>' | '>' '>') expression                       #ExprShifting
+    | expression bop=('<=' | '>=' | '>' | '<') expression                           #ExprComparison
+    | expression bop=INSTANCEOF (typeType | pattern)                                #ExprIsInstance
+    | expression bop=('==' | '!=') expression                                       #ExprEquality
+    | expression bop='&' expression                                                 #ExprBitwiseAND
+    | expression bop='^' expression                                                 #ExprXOR
+    | expression bop='|' expression                                                 #ExprBitwiseOR
+    | expression bop='&&' expression                                                #ExprLogicalAND
+    | expression bop='||' expression                                                #ExprLogicalOR
+    | <assoc=right> expression bop='?' expression ':' expression                    #ExprTernary
+    | <assoc=right> expression 
       bop=('=' | '+=' | '-=' | '*=' | '/=' | '&=' | '|=' | '^=' | '>>=' | '>>>=' | '<<=' | '%=')
-      expression
-    | lambdaExpression // Java8
-    | switchExpression // Java17
-
-    // Java 8 methodReference
-    | expression '::' typeArguments? identifier
-    | typeType '::' (typeArguments? identifier | NEW)
-    | classType '::' typeArguments? NEW
+      expression                                                                    #ExprRightAssociation
+    //| lambdaExpression // Java8
+    //| switchExpression // Java17, Should we really support them?
     ;
 
 // Java17
