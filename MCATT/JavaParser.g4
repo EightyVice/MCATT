@@ -480,22 +480,22 @@ localTypeDeclaration
     ;
 
 statement
-    : blockLabel=block
-    | ASSERT expression (':' expression)? ';'
-    | IF parExpression statement (ELSE statement)?
-    | FOR '(' forControl ')' statement
-    | WHILE parExpression statement
-    | DO statement WHILE parExpression ';'
-    | TRY block (catchClause+ finallyBlock? | finallyBlock)
-    | TRY resourceSpecification block catchClause* finallyBlock?
-    | SWITCH parExpression '{' switchBlockStatementGroup* switchLabel* '}'
-    | RETURN expression? ';'
-    | THROW expression ';'
-    | BREAK identifier? ';'
-    | CONTINUE identifier? ';'
-    | SEMI
-    | statementExpression=expression ';'
-    | identifierLabel=identifier ':' statement
+    : blockLabel=block                                                                          #StmtBlock
+    //| ASSERT expression (':' expression)? ';'           
+    | IF parExpression statement (ELSE statement)?                                              #StmtIf
+    | FOR '(' forControl ')' statement                                                          #StmtFor
+    | WHILE parExpression statement                                                             #StmtWhile
+    | DO statement WHILE parExpression ';'                                                      #StmtDoWhile
+    | TRY block (catchClause+ finallyBlock? | finallyBlock)                                     #StmTryCatch
+    //| TRY resourceSpecification block catchClause* finallyBlock?
+    | SWITCH parExpression '{' switchBlockStatementGroup* switchLabel* '}'                      #StmtSwitch
+    | RETURN expression? ';'                                                                    #StmtReturn
+    | THROW expression ';'                                                                      #StmtThrow
+    | BREAK identifier? ';'                                                                     #StmtBreak
+    | CONTINUE identifier? ';'                                                                  #StmtContinue
+    | SEMI                                                                                      #StmtSemicolon
+    | statementExpression=expression ';'                                                        #StmtExpression
+    //| identifierLabel=identifier ':' statement
     ;
 
 catchClause

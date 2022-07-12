@@ -4,5 +4,11 @@
 	//String t = "test";
 	int[] arr = {1,2,3,4,5};
 	arr[2] += 12;
-	if(arr[2] == 12);
+	if(arr[2] == 12){
+		print(12);
+	}else{
+		print(55);
+	}
+
+	if(arr[0] == 1) print(120);
 }

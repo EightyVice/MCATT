@@ -218,11 +218,58 @@ namespace MCATT.VirtualMachines
 			return null;
 		}
 
-		
+		private dynamic GetValFromExpr(ExpressionContext context)
+		{
+			dynamic val = Visit(context);
+			return (val is PrimitiveType ? (val as PrimitiveType).Value : val);
+		}
+
+		public override dynamic VisitExprLogicalAND([NotNull] ExprLogicalANDContext context)
+		{
+			VisitChildren(context);
+			dynamic left = Visit(context.expression(0));
+			dynamic right = Visit(context.expression(1));
+
+			return GetValFromExpr(left) && GetValFromExpr(right); 
+		}
+
+		public override dynamic VisitExprLogicalOR([NotNull] ExprLogicalORContext context)
+		{
+			VisitChildren(context);
+			dynamic left = Visit(context.expression(0));
+			dynamic right = Visit(context.expression(1));
+
+			return GetValFromExpr(left) || GetValFromExpr(right);
+		}
 		#endregion
 
 
+		#region Statements
+		public override dynamic VisitStmtIf([NotNull] StmtIfContext context)
+		{
+			// Don't visit children this time, visit on condition
+			if(GetValFromExpr(context.parExpression().expression()) == true)
+			{
+				Visit(context.statement(0));	// Execute the then statement
+			}
+			else
+			{
+				Visit(context.statement(1));	// Execute the else statement
+			}
+			return null;
+		}
 
+		public override dynamic VisitMethodCall([NotNull] MethodCallContext context)
+		{
+			VisitChildren(context);
+			// a dummy function for testing 
+			if(context.identifier().GetText() == "print")
+			{
+				Console.WriteLine(Visit(context.expressionList().expression(0)));
+			}
+			return base.VisitMethodCall(context);
+		}
+		#endregion
 		public override object VisitBlockStatement([NotNull] BlockStatementContext context)
 		{
 			VisitChildren(context);
