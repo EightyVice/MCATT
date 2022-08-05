@@ -39,7 +39,7 @@ namespace MCATT.VirtualMachines
 			if (context.variableModifier(0)?.FINAL() != null) isConstant = true;
 			
 			// Get Variable Type
-			type = PrimitiveType.GetTypeFromString(context.typeType().GetText());
+			type = PrimitiveType.GetTypeFromString(context.typeType().GetText().Replace("[]", ""));
 
 			// Get multiple declarators
 			foreach(var declarator in context.variableDeclarators().variableDeclarator())
@@ -47,7 +47,7 @@ namespace MCATT.VirtualMachines
 				Step step = new Step()
 				{
 					Start = context.Start.StartIndex,
-					End = context.stop.StopIndex,
+					End = context.Stop.StopIndex,
 					Line = context.start.Line,
 					Text = context.GetText()
 				};
@@ -61,6 +61,8 @@ namespace MCATT.VirtualMachines
 				{
 					List<IVarObj> inits = new List<IVarObj>();
 					step.Event = new Event(EventType.InitArray);
+					step.Event.Parameters.Add(name);
+					step.Event.Parameters.Add(Enum.GetName(type));
 					// For now, first-dimension arrays only
 					foreach(var arrinit in initializer.arrayInitializer().variableInitializer())
 					{
@@ -153,14 +155,14 @@ namespace MCATT.VirtualMachines
 			Step step = new Step()
 			{
 				Start = context.Start.StartIndex,
-				End = context.stop.StopIndex,
+				End = context.Stop.StopIndex,
 				Line = context.start.Line,
 				Text = context.GetText(),
 				Event = new Event(EventType.ValueChanged)
 			};
 			// Todo support nested right assoc
 			object exprLeft = Visit(context.expression(0));
-			dynamic right = Visit(context.expression(1));
+			dynamic right = context.expression(1);
 
 			if(exprLeft is PrimitiveType)
 			{
@@ -168,10 +170,10 @@ namespace MCATT.VirtualMachines
 				switch (context.bop.Text)
 				{
 					case "=":	step.Event.Parameters.AddRange(new string[] { left.Name, left.Value.ToString(), right.ToString()});					VM.Steps.Add(step);	return left.Value = right;
-					case "+=":	step.Event.Parameters.AddRange(new string[] { left.Name, left.Value.ToString(), (left.Value + right).ToString()});	VM.Steps.Add(step);	return left.Value += right;
-					case "-=":	step.Event.Parameters.AddRange(new string[] { left.Name, left.Value.ToString(), (left.Value - right).ToString()});	VM.Steps.Add(step);	return left.Value -= right;
-					case "*=":	step.Event.Parameters.AddRange(new string[] { left.Name, left.Value.ToString(), (left.Value * right).ToString()});	VM.Steps.Add(step);	return left.Value *= right;
-					case "/=":	step.Event.Parameters.AddRange(new string[] { left.Name, left.Value.ToString(), (left.Value / right).ToString()});	VM.Steps.Add(step); return left.Value /= right;
+					case "+=":	step.Event.Parameters.AddRange(new string[] { left.Name, left.Value.ToString(), (left.Value + GetValFromExpr(right)).ToString()});	VM.Steps.Add(step);	return left.Value += GetValFromExpr(right);
+					case "-=":	step.Event.Parameters.AddRange(new string[] { left.Name, left.Value.ToString(), (left.Value - GetValFromExpr(right)).ToString()});	VM.Steps.Add(step);	return left.Value -= GetValFromExpr(right);
+					case "*=":	step.Event.Parameters.AddRange(new string[] { left.Name, left.Value.ToString(), (left.Value * GetValFromExpr(right)).ToString()});	VM.Steps.Add(step);	return left.Value *= GetValFromExpr(right);
+					case "/=":	step.Event.Parameters.AddRange(new string[] { left.Name, left.Value.ToString(), (left.Value / GetValFromExpr(right)).ToString()});	VM.Steps.Add(step); return left.Value /= GetValFromExpr(right);
 				}
 
 			}
@@ -241,47 +243,142 @@ namespace MCATT.VirtualMachines
 
 			return GetValFromExpr(left) || GetValFromExpr(right);
 		}
+
+		public override dynamic VisitExprMemberAcess([NotNull] ExprMemberAcessContext context)
+		{
+			// Don't visit children
+			object left = Visit(context.expression());
+			if (context.identifier() != null)
+			{
+				return (left as ReferenceType).Members[context.identifier().GetText()];
+			}
+			else if (context.methodCall() != null)
+			{
+				Step step = new Step()
+				{
+					Start = context.Start.StartIndex,
+					End = context.Stop.StopIndex,
+					Line = context.start.Line,
+					Text = context.GetText(),
+					Event = new Event(EventType.CallFunction)
+				};
+				step.Event.Parameters.Add(context.GetText());
+
+				VM.Steps.Add(step);
+				var methodctx = context.methodCall();
+				string funcName = context.methodCall().identifier().GetText();
+				// check function arity
+				ReferenceType obj = (ReferenceType)left;
+				if (obj.Members.ContainsKey(funcName))
+				{
+					IMethod func = (IMethod)obj.Members[funcName];
+					
+					if(func.Arity == methodctx.expressionList().expression().Length)
+					{
+						if (func.Arity == 0) func.Invoke();
+						else
+						{
+							List<dynamic> args = new List<dynamic>();
+							foreach (var arg in methodctx.expressionList().expression())
+							{
+								step.Event.Parameters.Add(arg.GetText());
+								args.Add(Visit(arg));
+							}
+							func.Invoke(args.ToArray());
+						}
+					}
+				}
+			}
+
+			return null;
+		}
 		#endregion
 
 
 		#region Statements
 		public override dynamic VisitStmtIf([NotNull] StmtIfContext context)
 		{
-			// Don't visit children this time, visit on condition
-			if(GetValFromExpr(context.parExpression().expression()) == true)
+			Step step = new Step()
 			{
+				Start = context.Start.StartIndex,
+				End = context.Stop.StopIndex,
+				Line = context.start.Line,
+				Text = context.GetText(),
+				Event = new Event(EventType.Branching)
+			};
+
+			var comporator = context.parExpression().expression();
+			step.Event.Parameters.Add(comporator.GetText());
+			VM.Steps.Add(step);
+
+			// Don't visit children this time, visit on condition
+			if (GetValFromExpr(comporator) == true)
+			{
+				step.Event.Parameters.Add("true");
 				Visit(context.statement(0));	// Execute the then statement
 			}
 			else
 			{
-				Visit(context.statement(1));	// Execute the else statement
+				step.Event.Parameters.Add("false");
+				if(context.statement(1) != null) Visit(context.statement(1));	// Execute the else statement
 			}
+
 			return null;
 		}
 
+		public override dynamic VisitStmtWhile([NotNull] StmtWhileContext context)
+		{
+			// Limit loops executions to 10 this time
+			int counter = 0;
+
+			Step step = new Step()
+			{
+				Start = context.Start.StartIndex,
+				End = context.Stop.StopIndex,
+				Line = context.start.Line,
+				Text = context.GetText(),
+				Event = new Event(EventType.Loop)
+			};
+
+			var comporator = context.parExpression().expression();
+			VM.Steps.Add(step);
+
+			// Don't visit children this time, visit on condition
+			while (GetValFromExpr(comporator) == true && counter < 10)
+			{
+				Visit(context.statement());
+				counter++;
+			}
+			step.Event.Parameters.Add(counter.ToString());
+			return null;
+		}
+
+		public override dynamic VisitStmtFor([NotNull] StmtForContext context)
+		{
+			// Don't visit children this time, visit on condition
+			// todo: optional for loops structures
+			var control = context.forControl();
+			IVarObj init = Visit(control.forInit().localVariableDeclaration());
+			bool condition = Visit(control.expression());
+			while (condition)
+			{
+				foreach (var after in control.expressionList().expression())
+				{
+					Visit(after);
+				}
+			}
+			return null;
+		}
 		public override dynamic VisitMethodCall([NotNull] MethodCallContext context)
 		{
-			VisitChildren(context);
 			// a dummy function for testing 
 			if(context.identifier().GetText() == "print")
 			{
 				Console.WriteLine(Visit(context.expressionList().expression(0)));
 			}
-			return base.VisitMethodCall(context);
-		}
-		#endregion
-		public override object VisitBlockStatement([NotNull] BlockStatementContext context)
-		{
-			VisitChildren(context);
-			//Console.WriteLine(context.GetText());
 			return null;
 		}
-
-		public override object VisitArrayInitializer([NotNull] JavaParser.ArrayInitializerContext context)
-		{
-			return base.VisitArrayInitializer(context);
-		}
-
+		#endregion
 
 		#region Literals
 		public override dynamic VisitExprIntLiteral([NotNull] ExprIntLiteralContext context)

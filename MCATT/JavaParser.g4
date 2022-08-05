@@ -444,10 +444,14 @@ block
     : '{' blockStatement* '}'
     ;
 
+prog
+    : blockStatement*
+    ;
+    
 blockStatement
     : localVariableDeclaration ';'
     | statement
-    | localTypeDeclaration
+    //| localTypeDeclaration
     ;
 
 localVariableDeclaration
@@ -575,7 +579,7 @@ expression
        | NEW nonWildcardTypeArguments? innerCreator
        | SUPER superSuffix
        | explicitGenericInvocation
-      )                                                                             #ExprDotBOP
+      )                                                                             #ExprMemberAcess
     | expression '[' expression ']'                                                 #ExprArraySubscription
     | methodCall                                                                    #ExprMethodCall
     | NEW creator                                                                   #ExprCreator

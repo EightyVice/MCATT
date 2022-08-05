@@ -20,23 +20,28 @@ namespace MCATT.VirtualMachines
 		public JavaVM(string sourceCode)
 		{
 			SourceCode = sourceCode;
+			Standard.InitStandard(this);
+			Environment.Variables.Add("System", Standard.System);
 		}
 		public void Interpret()
 		{
-			AntlrInputStream fs = new AntlrInputStream(SourceCode);
-			JavaLexer lexer = new JavaLexer(fs);
-			CommonTokenStream token = new CommonTokenStream(lexer);
-			JavaParser parser = new JavaParser(token);
-			var tree = parser.block();
-			//Console.WriteLine(tree.ToStringTree());
-			JavaInterpreter interpreter = new JavaInterpreter(this);
-			tree.Accept(interpreter);
+			try
+			{
+				AntlrInputStream fs = new AntlrInputStream(SourceCode);
+				JavaLexer lexer = new JavaLexer(fs);
+				CommonTokenStream token = new CommonTokenStream(lexer);
+				JavaParser parser = new JavaParser(token);
+				parser.AddErrorListener(new ErrorListener());
 
+				var tree = parser.prog();
+				//Console.WriteLine(tree.ToStringTree());
+				JavaInterpreter interpreter = new JavaInterpreter(this);
+				tree.Accept(interpreter);
+			}catch(AppDomainUnloadedException e)
+			{
+				Console.WriteLine(e.Message);
+			}
 			// Dumping
-			Console.WriteLine("** Dumping Environment **");
-			Console.WriteLine(JsonSerializer.Serialize(Environment));
-			Console.WriteLine("*************************");
-			Console.WriteLine("**    Dumping Steps    **");
 			Console.WriteLine(JsonSerializer.Serialize(Steps, new JsonSerializerOptions() { WriteIndented = true}));
 
 			Console.WriteLine();

@@ -13,8 +13,11 @@ namespace MCATT.VirtualMachines
 		InitObject,
 		ValueChanged,
 		Comparison,
+		PrintOutput,
 		ReferenceChanged,
-		CallFunction
+		Loop,
+		Branching,
+		CallFunction,
 	}
 	internal class Event
 	{

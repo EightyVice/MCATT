@@ -18,7 +18,7 @@ namespace MCATT.VirtualMachines
 		Double
 	}
 
-	internal class PrimitiveType : IVarObj
+	internal class PrimitiveType : IVarObj, IMember
 	{
 		public string Name { get; set; }
 		public dynamic Value { get; set; }
@@ -52,32 +52,6 @@ namespace MCATT.VirtualMachines
 			return VariableType.Unknown;
 		}
 
-		public static bool IsNumericType(object o)
-		{
-			switch (Type.GetTypeCode(o.GetType()))
-			{
-				case TypeCode.Byte:
-				case TypeCode.SByte:
-				case TypeCode.UInt16:
-				case TypeCode.UInt32:
-				case TypeCode.UInt64:
-				case TypeCode.Int16:
-				case TypeCode.Int32:
-				case TypeCode.Int64:
-				case TypeCode.Decimal:
-				case TypeCode.Double:
-				case TypeCode.Single:
-					return true;
-				default:
-					return false;
-			}
-		}
-		private void ValidateAssignment(object right)
-		{
-			if(right.GetType().IsPrimitive && this.IsPrimitive)
-			{
-				Value = right;
-			}
-		}
+
 	}
 }

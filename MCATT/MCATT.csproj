@@ -8,6 +8,12 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Remove="VirtualMachines\C\Interpreter.cs" />
+    <Compile Remove="VirtualMachines\C\Statements.cs" />
+    <Compile Remove="VirtualMachines\C\StatementsBuilder.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
     <None Remove="JavaLexer.g4" />
     <None Remove="JavaParser.g4" />
   </ItemGroup>
@@ -18,6 +24,12 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Compile Include="obj\Debug\net6.0\CBaseListener.cs" />
+    <Compile Include="obj\Debug\net6.0\CBaseVisitor.cs" />
+    <Compile Include="obj\Debug\net6.0\CLexer.cs" />
+    <Compile Include="obj\Debug\net6.0\CListener.cs" />
+    <Compile Include="obj\Debug\net6.0\CParser.cs" />
+    <Compile Include="obj\Debug\net6.0\CVisitor.cs" />
     <Compile Include="obj\Debug\net6.0\JavaLexer.cs" />
     <Compile Include="obj\Debug\net6.0\JavaParser.cs" />
     <Compile Include="obj\Debug\net6.0\JavaParserBaseListener.cs" />
